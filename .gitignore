@@ -37,3 +37,6 @@ ipch/
 *.vssscc
 *.bak.*
 *.bak
+
+# Packages
+/packages/*/
