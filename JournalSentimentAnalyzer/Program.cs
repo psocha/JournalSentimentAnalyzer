@@ -15,6 +15,11 @@ namespace JournalSentimentAnalyzer
             DateTime endDate = new DateTime(2019, 12, 31);
             DateTime currentDate = startDate;
 
+            var sentimentClient = new SentimentClient();
+
+            Dictionary<string, List<double>> perParagraphScores = new Dictionary<string, List<double>>();
+            Dictionary<string, double> globalScores = new Dictionary<string, double>();
+
             while (currentDate <= endDate)
             {
                 string formattedDate = currentDate.ToString("yyyy-MM-dd");
@@ -27,6 +32,25 @@ namespace JournalSentimentAnalyzer
 
                     Console.WriteLine($"{fileName} has {paragraphs.Count} paragraphs.");
 
+                    for (int i = 0; i < paragraphs.Count; i++)
+                    {
+                        Paragraph paragraph = paragraphs[i];
+
+                        paragraph.SentimentScore = sentimentClient.GetSentimentScore(paragraph.ParagraphText);
+
+                        if (!perParagraphScores.ContainsKey(formattedDate))
+                        {
+                            perParagraphScores[formattedDate] = new List<double>();
+                        }
+
+                        perParagraphScores[formattedDate].Add(paragraph.SentimentScore);
+                        Console.WriteLine($"{formattedDate} paragraph {i} score: {paragraph.SentimentScore}");
+                    }
+
+                    double globalDayScore = ParagraphScoreAggregator.GetAggregateWeightedScore(paragraphs);
+                    globalScores[formattedDate] = globalDayScore;
+                    Console.WriteLine($"{formattedDate} global day score: {globalDayScore}");
+
                     currentDate = currentDate.AddDays(1);
                 }
                 catch (FileNotFoundException)
@@ -35,6 +59,29 @@ namespace JournalSentimentAnalyzer
                 }
             }
 
+            StringBuilder paragraphCsv = new StringBuilder();
+            foreach (string day in perParagraphScores.Keys)
+            {
+                paragraphCsv.Append(day);
+                foreach (double paragraphScore in perParagraphScores[day])
+                {
+                    paragraphCsv.Append(",");
+                    paragraphCsv.Append(paragraphScore.ToString());
+                }
+                paragraphCsv.Append("\n");
+            }
+            string perParagraphFileName = $"PerParagraphSentimentScores_{DateTime.UtcNow.ToString("yyyy-MM-dd-hh-mm-ss")}.csv";
+            File.WriteAllText(perParagraphFileName, paragraphCsv.ToString());
+            Console.WriteLine($"Output file {perParagraphFileName}");
+
+            StringBuilder dailyCsv = new StringBuilder();
+            foreach (string day in globalScores.Keys)
+            {
+                dailyCsv.AppendLine($"{day},{globalScores[day].ToString()}");
+            }
+            string perDayFileName = $"PerDaySentimentScores_{DateTime.UtcNow.ToString("yyyy-MM-dd-hh-mm-ss")}.csv";
+            File.WriteAllText(perDayFileName, dailyCsv.ToString());
+            Console.WriteLine($"Output file {perDayFileName}");
         }
     }
 }
